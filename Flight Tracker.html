@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Tracker · Oakland</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+
+<!-- Google fonts (used by Calm variant) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#f0eee9; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
+  #root { height:100vh; width:100vw; overflow:hidden; }
+  /* Hide scrollbars inside artboards */
+  .ft-art { scrollbar-width:none; }
+  .ft-art::-webkit-scrollbar { display:none; }
+  /* Mobile: when viewport is narrow, swap canvas for full-bleed single variant */
+  @media (max-width: 700px) {
+    #root .dc-canvas-frame { display:none; }
+    #root .ft-mobile { display:flex !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="flight-data.jsx"></script>
+<script type="text/babel" src="shared-map.jsx"></script>
+<script type="text/babel" src="location-picker.jsx"></script>
+<script type="text/babel" src="variants.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "mapStyle": "light",
+  "timeOfDay": 0.6,
+  "showPaths": false,
+  "showTrails": true,
+  "overheadTreatment": "hero",
+  "useDemo": false,
+  "radiusNm": 25
+}/*EDITMODE-END*/;
+
+const ART_W = 390;
+const ART_H = 780;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const { location, status: geoStatus, setLocation, useGeolocation, reset: resetLocation } = useLocation();
+  const { planes, status, lastUpdate } = useFlights({
+    radiusNm: t.radiusNm, intervalMs: 8000, demo: t.useDemo, location,
+  });
+
+  // First-load: prefer real geolocation. We only persist explicit user picks
+  // (search/manual), so 'default' here means the user has no override —
+  // request real coords. If they previously searched a city, location.source
+  // is 'search' and we leave it alone (they can hit 📍 to switch back).
+  React.useEffect(() => {
+    if (location.source === 'default') useGeolocation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Detect mobile
+  const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' && window.innerWidth < 700);
+  React.useEffect(() => {
+    const f = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
+  const [mobileVariant, setMobileVariant] = React.useState('weather'); // 'tower'|'weather'|'calm'
+
+  const sharedProps = {
+    planes, status, lastUpdate, house: location,
+    mapStyle: t.mapStyle, showPaths: t.showPaths, showTrails: t.showTrails, timeOfDay: t.timeOfDay,
+    overheadTreatment: t.overheadTreatment,
+    width: ART_W, height: ART_H,
+  };
+
+  const locationPicker = (
+    <LocationPicker location={location} status={geoStatus}
+      onSet={setLocation} onUseGeo={useGeolocation} onReset={resetLocation}/>
+  );
+
+  // Mobile single-variant view
+  if (isMobile) {
+    const Comp = mobileVariant === 'tower' ? TowerVariant : mobileVariant === 'calm' ? CalmVariant : WeatherVariant;
+    return (
+      <div className="ft-mobile" style={{display:'flex', flexDirection:'column', height:'100vh', width:'100vw'}}>
+        <div style={{flex:1, minHeight:0}}>
+          <Comp {...sharedProps} width={window.innerWidth} height={window.innerHeight - 56}/>
+        </div>
+        <div style={{height:56, display:'flex', borderTop:'.5px solid rgba(0,0,0,.1)', background:'rgba(255,255,255,.92)', backdropFilter:'blur(20px)'}}>
+          {[
+            {k:'weather', label:'Weather'},
+            {k:'tower',   label:'Tower'},
+            {k:'calm',    label:'Calm'},
+          ].map(o => (
+            <button key={o.k} onClick={()=>setMobileVariant(o.k)} style={{
+              flex:1, border:'none', background:'transparent', cursor:'pointer',
+              fontSize:12, fontWeight:600, letterSpacing:'.04em',
+              color: mobileVariant===o.k ? '#c96442' : 'rgba(0,0,0,.55)',
+              borderTop: mobileVariant===o.k ? '2px solid #c96442' : '2px solid transparent',
+            }}>{o.label}</button>
+          ))}
+        </div>
+        <FlightTweaks t={t} setTweak={setTweak} mobile/>
+        {locationPicker}
+      </div>
+    );
+  }
+
+  // Desktop / tablet — design canvas
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="variants" title="Flight Tracker" subtitle={`Three directions · ${(location.label||'current location').split(',').slice(0,2).join(',')}`}>
+          <DCArtboard id="weather" label="A · Weather (Apple-style)" width={ART_W} height={ART_H}>
+            <div className="ft-art" style={{width:'100%', height:'100%', overflow:'hidden'}}>
+              <WeatherVariant {...sharedProps}/>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="tower" label="B · Tower (tactical)" width={ART_W} height={ART_H}>
+            <div className="ft-art" style={{width:'100%', height:'100%', overflow:'hidden'}}>
+              <TowerVariant {...sharedProps}/>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="calm" label="C · Calm (editorial)" width={ART_W} height={ART_H}>
+            <div className="ft-art" style={{width:'100%', height:'100%', overflow:'hidden'}}>
+              <CalmVariant {...sharedProps}/>
+            </div>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+      <FlightTweaks t={t} setTweak={setTweak}/>
+      {locationPicker}
+    </>
+  );
+}
+
+function FlightTweaks({ t, setTweak, mobile }) {
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Map"/>
+      <TweakRadio label="Style" value={t.mapStyle}
+        options={[{value:'light',label:'Light'},{value:'dark',label:'Dark'},{value:'terrain',label:'Terrain'}]}
+        onChange={(v)=>setTweak('mapStyle', v)}/>
+      <TweakSlider label={`Time of day (${String(Math.round(t.timeOfDay*24)%24).padStart(2,'0')}:00)`}
+        value={t.timeOfDay} min={0} max={1} step={0.05}
+        onChange={(v)=>setTweak('timeOfDay', v)}/>
+      <TweakToggle label="60s trails (past)" value={t.showTrails} onChange={(v)=>setTweak('showTrails', v)}/>
+      <TweakToggle label="Forward paths (5min)" value={t.showPaths} onChange={(v)=>setTweak('showPaths', v)}/>
+      <TweakSection label="Overhead Now"/>
+      <TweakRadio label="Treatment" value={t.overheadTreatment}
+        options={[{value:'hero',label:'Hero'},{value:'compact',label:'Compact'},{value:'fullscreen',label:'Full'}]}
+        onChange={(v)=>setTweak('overheadTreatment', v)}/>
+      <TweakSection label="Data"/>
+      <TweakSlider label="Radius (nm)" value={t.radiusNm} min={5} max={75} step={5} unit=" nm"
+        onChange={(v)=>setTweak('radiusNm', v)}/>
+      <TweakToggle label="Demo data" value={t.useDemo} onChange={(v)=>setTweak('useDemo', v)}/>
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

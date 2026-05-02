@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#76b6ff">
+<meta name="description" content="An ambient flight tracker showing aircraft over your location.">
+<title>Flight Tracker</title>
+
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23c96442' d='M12 2 4 22l8-4 8 4z'/></svg>">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+
+<!-- React 18 production builds — small, no Babel runtime -->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#76b6ff; -webkit-font-smoothing:antialiased; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
+  #root { height:100vh; width:100vw; overflow:hidden; }
+  #root > div > div { scrollbar-width:none; }
+  #root > div > div::-webkit-scrollbar { display:none; }
+  /* boot splash */
+  .boot { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; letter-spacing:.05em; z-index:1; }
+  .boot.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="boot" id="boot">Loading flight tracker…</div>
+
+<script src="app.bundle.js" defer></script>
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () { document.getElementById('boot').classList.add('hidden'); }, 400);
+  });
+</script>
+</body>
+</html>
