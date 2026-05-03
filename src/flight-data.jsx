@@ -252,24 +252,28 @@ export function altCategory(altFt) {
 // (lazy-loaded from the route endpoint and cached).
 const ROUTE_CACHE = new Map(); // callsign -> {origin, destination}
 
-async function fetchRoute(callsign, lat, lon) {
+// Origin/destination lookup via adsbdb.com (CORS-enabled, free, no key).
+// 404 for unknown/private callsigns — cache null so we don't retry.
+async function fetchRoute(callsign) {
   if (!callsign) return null;
   const cs = callsign.trim();
   if (!cs) return null;
   if (ROUTE_CACHE.has(cs)) return ROUTE_CACHE.get(cs);
   try {
-    const r = await fetch(ADSB_PROXY + encodeURIComponent('https://api.adsb.lol/api/0/routeset'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planes: [{ callsign: cs, lat, lng: lon }] }),
-    });
+    const r = await fetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(cs)}`);
     if (!r.ok) { ROUTE_CACHE.set(cs, null); return null; }
     const j = await r.json();
-    const hit = Array.isArray(j) ? j[0] : null;
-    if (hit && hit._airports && hit._airports.length >= 2) {
+    const fr = j?.response?.flightroute;
+    if (fr && fr.origin && fr.destination) {
       const route = {
-        origin: hit._airports[0],
-        destination: hit._airports[hit._airports.length - 1],
+        origin: {
+          iata: fr.origin.iata_code,
+          name: fr.origin.municipality || fr.origin.name,
+        },
+        destination: {
+          iata: fr.destination.iata_code,
+          name: fr.destination.municipality || fr.destination.name,
+        },
       };
       ROUTE_CACHE.set(cs, route);
       return route;
