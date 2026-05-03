@@ -1,6 +1,9 @@
 // variants.jsx — three flight-tracker design directions.
 // Each variant accepts: { planes, status, lastUpdate, house, mapStyle, showPaths,
 //   timeOfDay, overheadTreatment, width, height }
+import React from 'react'
+import { SharedMap } from './shared-map.jsx'
+import { fmt, useAircraftPhoto } from './flight-data.jsx'
 
 // ─── Reusable bits ──────────────────────────────────────────────
 function StatusDot({ status }) {
@@ -255,7 +258,7 @@ function TowerHero({ focusedPlane, isPinned, clearPin, C }) {
 // ═══════════════════════════════════════════════════════════════
 // VARIANT 2 — WEATHER  (Apple-Weather-style, soft, friendly cards)
 // ═══════════════════════════════════════════════════════════════
-function WeatherVariant({ planes, status, lastUpdate, house, mapStyle, showPaths, showTrails, timeOfDay, overheadTreatment, width, height }) {
+export function WeatherVariant({ planes, status, lastUpdate, house, mapStyle, showPaths, showTrails, timeOfDay, overheadTreatment, width, height }) {
   const { focusedHex, focusedPlane, isPinned, select, clearPin } = useFocus(planes);
 
   // Sky-gradient driven by timeOfDay
@@ -554,4 +557,3 @@ function CalmStat({ label, value, mono }) {
   );
 }
 
-Object.assign(window, { TowerVariant, WeatherVariant, CalmVariant });

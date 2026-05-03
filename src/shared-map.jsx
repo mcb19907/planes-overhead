@@ -1,11 +1,14 @@
 // shared-map.jsx
-// Leaflet map shared by all variants. Imports Leaflet via global L (loaded in HTML).
+// Leaflet map shared by all variants.
 // Renders: house marker, plane markers (rotated icons), optional flight paths,
 // optional airspace circle, terrain/light/dark tile layers.
 //
 // Props:
 //   planes, house, focusedHex, onSelect, mapStyle ('light'|'dark'|'terrain'),
 //   showPaths, timeOfDay (0-1, 0=midnight, .5=noon), height
+import React from 'react'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 const TILE_LAYERS = {
   light: {
@@ -86,7 +89,7 @@ if (typeof document !== 'undefined' && !document.getElementById('shared-map-styl
   document.head.appendChild(s);
 }
 
-function SharedMap({
+export function SharedMap({
   planes = [], house, focusedHex, onSelect,
   mapStyle = 'light', showPaths = false, showTrails = false, timeOfDay = 0.5,
   zoom = 11, height = 320, planeColor = null, showAirspace = false,
@@ -258,4 +261,3 @@ function SharedMap({
   );
 }
 
-window.SharedMap = SharedMap;

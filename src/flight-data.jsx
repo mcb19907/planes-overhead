@@ -1,22 +1,27 @@
 // flight-data.jsx
 // Shared live flight data layer (adsb.lol) + airport lookups + geo helpers.
 // All variants consume the same hook so they stay in sync.
+import React from 'react'
 
 // ─── Default location ──────────────────────────────────────────
 // Used as a fallback if the user has not set one and geolocation is denied.
-const DEFAULT_LOCATION = { lat: 37.7935, lon: -122.2310, label: 'Oakland, CA', source: 'default' };
+export const DEFAULT_LOCATION = { lat: 37.7935, lon: -122.2310, label: 'Oakland, CA', source: 'default' };
 const LOCATION_KEY = 'ft.location.v1';
+
+// adsb.lol does not return CORS headers, so direct browser fetches from
+// github.io get blocked. corsproxy.io wraps the request and adds them.
+const ADSB_PROXY = 'https://corsproxy.io/?url=';
 
 // Backwards-compat alias — older code used `HOUSE` for the fixed home pin.
 // Now resolved at runtime via useLocation(). We keep an exported HOUSE that
 // always reflects the *current* active location for any helpers that import it
 // directly (it's mutated by the location hook).
-const HOUSE = { ...DEFAULT_LOCATION };
+export const HOUSE = { ...DEFAULT_LOCATION };
 
 // ─── Geocoding (Nominatim) ─────────────────────────────────────
 // Free, no key, requires a User-Agent / Referer header — we send a Referer by
 // virtue of being in a browser. Rate-limit: 1 req/sec, fine for interactive search.
-async function geocode(query) {
+export async function geocode(query) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`;
   const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!r.ok) throw new Error('geocode HTTP ' + r.status);
@@ -29,7 +34,7 @@ async function geocode(query) {
   }));
 }
 
-async function reverseGeocode(lat, lon) {
+export async function reverseGeocode(lat, lon) {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`;
     const r = await fetch(url);
@@ -52,7 +57,7 @@ function shortenLabel(name) {
 // ─── Location hook ─────────────────────────────────────────────
 // Returns: { location, status, setLocation, useGeolocation, search, results }
 // Source priority: stored > geolocation > default.
-function useLocation() {
+export function useLocation() {
   const [location, setLocationState] = React.useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(LOCATION_KEY));
@@ -174,7 +179,7 @@ const AIRPORTS = {
   KPAO: { iata: 'PAO', city: 'Palo Alto' },
 };
 
-function lookupAirport(icao) {
+export function lookupAirport(icao) {
   if (!icao) return null;
   const a = AIRPORTS[icao.toUpperCase()];
   if (a) return a;
@@ -198,14 +203,14 @@ const AIRLINES = {
   PAL: 'Philippine', THA: 'Thai', QTR: 'Qatar', UAE: 'Emirates',
 };
 
-function airlineFromCallsign(cs) {
+export function airlineFromCallsign(cs) {
   if (!cs) return null;
   const prefix = cs.slice(0, 3).toUpperCase();
   return AIRLINES[prefix] || null;
 }
 
 // ─── Geo math ───────────────────────────────────────────────────
-function haversineNm(a, b) {
+export function haversineNm(a, b) {
   const R = 3440.065; // nautical miles
   const toRad = (d) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
@@ -215,7 +220,7 @@ function haversineNm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-function bearingFromPoint(from, to) {
+export function bearingFromPoint(from, to) {
   const toRad = (d) => (d * Math.PI) / 180;
   const toDeg = (r) => (r * 180) / Math.PI;
   const φ1 = toRad(from.lat), φ2 = toRad(to.lat);
@@ -225,14 +230,14 @@ function bearingFromPoint(from, to) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 // Backwards-compat
-function bearingFromHouse(p) { return bearingFromPoint(HOUSE, p); }
+export function bearingFromHouse(p) { return bearingFromPoint(HOUSE, p); }
 
-function compassFromBearing(bearing) {
+export function compassFromBearing(bearing) {
   const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   return dirs[Math.round(bearing / 45) % 8];
 }
 
-function altCategory(altFt) {
+export function altCategory(altFt) {
   if (!altFt || altFt === 'ground') return 'ground';
   if (altFt < 5000) return 'low';      // very overhead, descending/climbing
   if (altFt < 15000) return 'mid';
@@ -252,7 +257,7 @@ async function fetchRoute(callsign, lat, lon) {
   if (!cs) return null;
   if (ROUTE_CACHE.has(cs)) return ROUTE_CACHE.get(cs);
   try {
-    const r = await fetch(`https://api.adsb.lol/api/0/routeset`, {
+    const r = await fetch(ADSB_PROXY + encodeURIComponent('https://api.adsb.lol/api/0/routeset'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ planes: [{ callsign: cs, lat, lng: lon }] }),
@@ -273,7 +278,7 @@ async function fetchRoute(callsign, lat, lon) {
   return null;
 }
 
-function useFlights({ radiusNm = 25, intervalMs = 8000, demo = false, location = DEFAULT_LOCATION, trailLengthSec = 60 } = {}) {
+export function useFlights({ radiusNm = 25, intervalMs = 8000, demo = false, location = DEFAULT_LOCATION, trailLengthSec = 60 } = {}) {
   const [planes, setPlanes] = React.useState([]);
   const [status, setStatus] = React.useState('connecting'); // connecting | live | error | demo
   const [lastUpdate, setLastUpdate] = React.useState(null);
@@ -292,7 +297,7 @@ function useFlights({ radiusNm = 25, intervalMs = 8000, demo = false, location =
     }
     try {
       const url = `https://api.adsb.lol/v2/lat/${loc.lat}/lon/${loc.lon}/dist/${radiusNm}`;
-      const r = await fetch(url);
+      const r = await fetch(ADSB_PROXY + encodeURIComponent(url));
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       const list = (j.ac || [])
@@ -355,7 +360,7 @@ function useFlights({ radiusNm = 25, intervalMs = 8000, demo = false, location =
   return { planes, status, lastUpdate, house: HOUSE, refresh: tick };
 }
 
-function normalizePlane(a, loc = HOUSE) {
+export function normalizePlane(a, loc = HOUSE) {
   const lat = a.lat, lon = a.lon;
   const altFt = a.alt_baro === 'ground' ? 0 : (a.alt_baro ?? a.alt_geom ?? null);
   const distNm = haversineNm(loc, { lat, lon });
@@ -405,7 +410,7 @@ function prettyAircraft(t) {
 }
 
 // ─── Demo data (used when API fails or demo flag set) ───────────
-function generateDemoPlanes(loc = HOUSE) {
+export function generateDemoPlanes(loc = HOUSE) {
   // Generate planes around the active location with realistic offsets.
   const seeds = [
     { off:[ 0.00,-0.02], altFt:3200,  speedKt:210, track:280, flight:'UAL245',  type:'B738', route:{origin:{iata:'OAK',name:'Oakland'},destination:{iata:'LAX',name:'Los Angeles'}} },
@@ -452,7 +457,7 @@ function generateDemoPlanes(loc = HOUSE) {
 }
 
 // ─── Format helpers ─────────────────────────────────────────────
-const fmt = {
+export const fmt = {
   alt: (ft) => ft == null ? '—' : ft === 0 ? 'ground' : ft.toLocaleString() + ' ft',
   altShort: (ft) => ft == null ? '—' : ft === 0 ? 'GND' : Math.round(ft/100) + ' FL',
   speed: (kt) => kt == null ? '—' : Math.round(kt) + ' kt',
@@ -488,7 +493,7 @@ async function fetchAircraftPhoto(hex) {
   }
 }
 
-function useAircraftPhoto(hex) {
+export function useAircraftPhoto(hex) {
   const [photo, setPhoto] = React.useState(null);
   React.useEffect(() => {
     let cancelled = false;
@@ -500,9 +505,4 @@ function useAircraftPhoto(hex) {
   return photo;
 }
 
-Object.assign(window, {
-  useFlights, useLocation, useAircraftPhoto, fetchAircraftPhoto,
-  HOUSE, DEFAULT_LOCATION, lookupAirport, airlineFromCallsign,
-  haversineNm, bearingFromHouse, bearingFromPoint, compassFromBearing, altCategory,
-  fmt, generateDemoPlanes, geocode, reverseGeocode,
-});
+export { fetchAircraftPhoto };

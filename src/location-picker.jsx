@@ -1,7 +1,9 @@
 // location-picker.jsx — small floating control to set the active location.
 // Provides a search box + "use my location" button + reset to default.
+import React from 'react'
+import { geocode } from './flight-data.jsx'
 
-function LocationPicker({ location, status, onSet, onUseGeo, onReset, accent = '#c96442' }) {
+export function LocationPicker({ location, status, onSet, onUseGeo, onReset, accent = '#c96442' }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
   const [results, setResults] = React.useState([]);
@@ -104,4 +106,3 @@ function LocationPicker({ location, status, onSet, onUseGeo, onReset, accent = '
     </div>
   );
 }
-window.LocationPicker = LocationPicker;
