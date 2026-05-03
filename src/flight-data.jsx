@@ -10,7 +10,8 @@ const LOCATION_KEY = 'ft.location.v1';
 
 // adsb.lol does not return CORS headers, so direct browser fetches from
 // github.io get blocked. corsproxy.io wraps the request and adds them.
-const ADSB_PROXY = 'https://corsproxy.io/?url=';
+// Format is `?<URL>` (raw, no `?url=` named param — that returns their homepage).
+const ADSB_PROXY = 'https://corsproxy.io/?';
 
 // Backwards-compat alias — older code used `HOUSE` for the fixed home pin.
 // Now resolved at runtime via useLocation(). We keep an exported HOUSE that
